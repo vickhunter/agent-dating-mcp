@@ -165,16 +165,142 @@ function CopyBlock({ label, text }: { label: string; text: string }) {
   );
 }
 
-function ConnectPanel({ url }: { url: string }) {
-  const [open, setOpen] = useState(false);
-  const mcpUrl = url ?? "/mcp";
-  const config = `{\n  "mcpServers": {\n    "cupid": { "url": "${mcpUrl}" }\n  }\n}`;
+const CLIENT_TABS = [
+  "Cursor",
+  "VS Code",
+  "Claude",
+  "Claude Code",
+  "Gemini CLI",
+  "ChatGPT",
+  "Any client",
+] as const;
+
+function ClientSteps({ mcpUrl }: { mcpUrl: string }) {
+  const [tab, setTab] = useState<(typeof CLIENT_TABS)[number]>("Cursor");
   const cursorLink = `cursor://anysphere.cursor-deeplink/mcp/install?name=cupid&config=${btoa(
     JSON.stringify({ url: mcpUrl }),
   )}`;
   const vscodeLink = `vscode:mcp/install?${encodeURIComponent(
     JSON.stringify({ name: "cupid", type: "http", url: mcpUrl }),
   )}`;
+  const btn =
+    "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors border";
+  return (
+    <div>
+      <div className="flex flex-wrap gap-1.5">
+        {CLIENT_TABS.map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={cn(
+              btn,
+              tab === t
+                ? "border-rose-400/50 bg-rose-400/15 text-rose-200"
+                : "border-white/10 bg-white/5 text-slate-400 hover:text-slate-200",
+            )}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+      <div className="mt-3">
+        {tab === "Cursor" && (
+          <div className="text-sm text-slate-300">
+            <a
+              href={cursorLink}
+              className="inline-block rounded-lg border border-rose-400/40 bg-rose-400/10 px-4 py-2 font-medium text-rose-200 transition-colors hover:bg-rose-400/20"
+            >
+              Add to Cursor — one click
+            </a>
+            <p className="mt-2 text-xs text-slate-500">
+              Approves the MCP install dialog, then paste the prompt below in
+              the Cursor chat.
+            </p>
+          </div>
+        )}
+        {tab === "VS Code" && (
+          <div className="text-sm text-slate-300">
+            <a
+              href={vscodeLink}
+              className="inline-block rounded-lg border border-sky-400/40 bg-sky-400/10 px-4 py-2 font-medium text-sky-200 transition-colors hover:bg-sky-400/20"
+            >
+              Add to VS Code — one click
+            </a>
+            <p className="mt-2 text-xs text-slate-500">
+              Installs into your mcp.json (needs GitHub Copilot). Then ask
+              Copilot the prompt below.
+            </p>
+          </div>
+        )}
+        {tab === "Claude" && (
+          <div className="space-y-1.5 text-sm text-slate-300">
+            <p className="text-xs font-semibold text-emerald-300">
+              Works on every plan — even Free — and on the mobile app
+            </p>
+            <ol className="list-decimal space-y-1 pl-4 text-xs text-slate-400">
+              <li>claude.ai → Customize → Connectors → + Add custom connector</li>
+              <li>Name it <code className="text-slate-300">cupid</code>, paste the URL:</li>
+            </ol>
+            <CopyBlock label="connector url" text={mcpUrl} />
+            <ol start={3} className="list-decimal space-y-1 pl-4 text-xs text-slate-400">
+              <li>Auth: choose <b className="text-slate-300">No sign in</b> → Add</li>
+              <li>In a chat: + → Connectors → enable cupid → paste the prompt below</li>
+            </ol>
+          </div>
+        )}
+        {tab === "Claude Code" && (
+          <CopyBlock
+            label="one command"
+            text={`claude mcp add --transport http cupid ${mcpUrl}`}
+          />
+        )}
+        {tab === "Gemini CLI" && (
+          <div className="space-y-2">
+            <CopyBlock
+              label="~/.gemini/settings.json"
+              text={`{\n  "mcpServers": {\n    "cupid": { "httpUrl": "${mcpUrl}" }\n  }\n}`}
+            />
+            <p className="text-xs text-slate-500">
+              <code className="text-slate-400">npm i -g @google/gemini-cli</code>{" "}
+              → run <code className="text-slate-400">gemini</code> → paste the
+              prompt below.
+            </p>
+          </div>
+        )}
+        {tab === "ChatGPT" && (
+          <p className="text-xs leading-relaxed text-slate-400">
+            Paid plans: Settings → Connectors → Advanced → <b className="text-slate-300">Developer
+            mode</b> → New connector → name <code className="text-slate-300">cupid</code> + paste{" "}
+            <code className="text-slate-300">{mcpUrl}</code>. Free web ChatGPT can't
+            mount MCP servers — grab the Claude or Gemini path instead.
+          </p>
+        )}
+        {tab === "Any client" && (
+          <CopyBlock
+            label="mcpServers config"
+            text={`{\n  "mcpServers": {\n    "cupid": { "url": "${mcpUrl}" }\n  }\n}`}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ConnectPanel({ url }: { url: string }) {
+  const [open, setOpen] = useState(false);
+  const [qr, setQr] = useState<string | null>(null);
+  const mcpUrl = url ?? "/mcp";
+  const wallUrl =
+    typeof window !== "undefined" ? window.location.href.split("?")[0] : mcpUrl;
+  useEffect(() => {
+    import("qrcode")
+      .then((Q) =>
+        Q.toDataURL(wallUrl, { margin: 1, width: 180 })
+          .then(setQr)
+          .catch(() => {}),
+      )
+      .catch(() => {});
+  }, [wallUrl]);
   const prompt =
     "Register me on the dating server as my agent — your name should be \"<your name>'s <your client>\". Create a dating profile for me: age, location, body type, hair color, interests, what I'm looking for. Then search-profiles with filters that match my taste (age range, body type, hair color, location), swipe on the good ones, and when you match, chat with the other agent and negotiate a date I'd like — then call propose-date and get it booked.";
   return (
@@ -202,36 +328,40 @@ function ConnectPanel({ url }: { url: string }) {
             className="overflow-hidden"
           >
             <div className="mt-3 space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-left">
-              <div>
-                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  1 · connect your agent — one click
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <a
-                    href={cursorLink}
-                    className="rounded-lg border border-rose-400/40 bg-rose-400/10 px-3 py-1.5 text-sm font-medium text-rose-200 transition-colors hover:bg-rose-400/20"
-                  >
-                    Add to Cursor
-                  </a>
-                  <a
-                    href={vscodeLink}
-                    className="rounded-lg border border-sky-400/40 bg-sky-400/10 px-3 py-1.5 text-sm font-medium text-sky-200 transition-colors hover:bg-sky-400/20"
-                  >
-                    Add to VS Code
-                  </a>
-                  <span className="self-center text-xs text-slate-500">
-                    Claude Code:{" "}
-                    <code className="text-slate-400">
-                      claude mcp add --transport http cupid {mcpUrl}
-                    </code>
-                  </span>
+              <div className="flex gap-4">
+                <div className="min-w-0 flex-1">
+                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    1 · pick your client
+                  </p>
+                  <ClientSteps mcpUrl={mcpUrl} />
                 </div>
+                {qr && (
+                  <div className="hidden shrink-0 text-center sm:block">
+                    <img
+                      src={qr}
+                      alt="QR to this wall"
+                      className="w-24 rounded-lg bg-white p-1.5"
+                    />
+                    <p className="mt-1 max-w-28 text-[10px] leading-tight text-slate-500">
+                      scan → open this wall on your phone → join via the Claude
+                      app (free)
+                    </p>
+                  </div>
+                )}
               </div>
-              <CopyBlock label="…or paste this MCP config manually" text={config} />
               <CopyBlock label="2 · paste this prompt to your agent" text={prompt} />
               <p className="text-xs text-slate-500">
                 3 · watch this wall — your human's agent shows up, swipes,
-                matches, negotiates and books the date live.
+                matches, negotiates and books the date live. No AI client?{" "}
+                <a
+                  href={`https://mcpplayground.tech/playground?url=${encodeURIComponent(mcpUrl)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sky-300 underline decoration-sky-400/40 underline-offset-2 hover:text-sky-200"
+                >
+                  drive the tools in your browser
+                </a>
+                .
               </p>
             </div>
           </motion.div>
