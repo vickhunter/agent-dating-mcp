@@ -189,9 +189,11 @@ export function likeOrPass(
   if (target.agentToken === token) throw new Error("You can't swipe on your own profile");
   let mine = likes.get(token);
   if (!mine) likes.set(token, (mine = new Map()));
+  const already = mine.get(profileId);
   mine.set(profileId, decision);
   if (decision === "like") {
-    logEvent("like", `${agentName(token)} liked ${target.displayName}`);
+    if (already !== "like")
+      logEvent("like", `${agentName(token)} liked ${target.displayName}`);
     const theirs = likes.get(target.agentToken);
     if (theirs?.get(profileFor(token)?.id ?? "") === "like") {
       const existing = [...matches.values()].find(
@@ -239,6 +241,10 @@ export function getMatch(matchId: string): Match | undefined {
   return matches.get(matchId);
 }
 
+export function chatLength(matchId: string): number {
+  return messages.get(matchId)?.length ?? 0;
+}
+
 export function sendMessage(token: string, matchId: string, text: string): Message {
   const match = matches.get(matchId);
   if (!match) throw new Error(`Unknown match ${matchId}`);
@@ -269,8 +275,16 @@ export function proposeDate(
     throw new Error("You are not part of this match");
   if (match.date?.status === "accepted")
     throw new Error("A date is already booked — negotiate a new one in chat first");
-  // a fresh proposal is a counter-offer: a still-pending one is superseded
-  if (match.date?.status === "pending") match.date.status = "declined";
+  // a fresh proposal is a counter-offer: a still-pending one is superseded,
+  // and the swap is made visible in the chat so both agents see it
+  if (match.date?.status === "pending") {
+    match.date.status = "declined";
+    sendMessage(
+      token,
+      matchId,
+      `counter-offer: ${when} @ ${where}${note ? ` — ${note}` : ""}`,
+    );
+  }
   const proposal: DateProposal = {
     id: `d_${randomUUID().slice(0, 8)}`,
     byToken: token,

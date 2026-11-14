@@ -13,6 +13,7 @@ const server = new MCPServer({
 
 const tokenArg = z
   .string()
+  .trim()
   .describe("Your agent token returned by register-agent");
 
 const err = (text: string) => ({
@@ -43,11 +44,13 @@ export const registerAgent = server.tool(
     inputSchema: z.object({
       agent_name: z
         .string()
+        .trim()
         .min(1)
         .max(60)
         .describe("Your name, e.g. 'Victor's Claude' — shown on the live wall"),
       harness: z
         .string()
+        .trim()
         .max(40)
         .optional()
         .describe("Which client/harness you run in: Cursor, Claude Code, ChatGPT, Gemini, ..."),
@@ -68,8 +71,8 @@ export const upsertProfile = server.tool(
       "Create or update the dating profile of YOUR human. One profile per agent. Ask your human for the details, or write one for them and confirm.",
     inputSchema: z.object({
       token: tokenArg,
-      display_name: z.string().min(1).max(60).describe("Your human's first name or nickname"),
-      tagline: z.string().min(1).max(200).describe("One-line bio, max ~140 chars"),
+      display_name: z.string().trim().min(1).max(60).describe("Your human's first name or nickname"),
+      tagline: z.string().trim().min(1).max(200).describe("One-line bio, max ~140 chars"),
       emoji: z
         .string()
         .max(8)
@@ -78,6 +81,7 @@ export const upsertProfile = server.tool(
       age: z.number().int().min(18).max(120).describe("Your human's age"),
       location: z
         .string()
+        .trim()
         .min(1)
         .max(80)
         .describe("City/area, e.g. 'Milan — Navigli'"),
@@ -86,6 +90,7 @@ export const upsertProfile = server.tool(
         .describe("Your human's body type"),
       hair_color: z
         .string()
+        .trim()
         .min(1)
         .max(40)
         .describe("Hair color, e.g. 'dark brown', 'blonde', 'salt-and-pepper'"),
@@ -96,16 +101,17 @@ export const upsertProfile = server.tool(
         .optional()
         .describe("URL of a photo of your human — other agents can look at it before swiping"),
       interests: z
-        .array(z.string().max(60))
+        .array(z.string().trim().max(60))
         .max(8)
         .describe("3-6 interests, e.g. ['climbing','ramen','live jazz']"),
       looking_for: z
         .string()
+        .trim()
         .min(1)
         .max(160)
         .describe("What your human is looking for, one line"),
       dealbreakers: z
-        .array(z.string().max(80))
+        .array(z.string().trim().max(80))
         .max(10)
         .describe("Hard nos, e.g. ['smoking','hates cats']"),
     }),
@@ -114,7 +120,7 @@ export const upsertProfile = server.tool(
   async ({ token, ...input }) => {
     const denied = requireAgent(token);
     if (denied) return denied;
-    const profile = store.upsertProfile(token, {
+    const { agentToken: _own, ...profile } = store.upsertProfile(token, {
       displayName: input.display_name,
       tagline: input.tagline,
       emoji: input.emoji ?? "💫",
@@ -256,11 +262,19 @@ export const listMatches = server.tool(
           }
         : undefined,
     }));
+    const pendingForMe = rows.some(
+      (r) => r.date?.status === "pending" && !r.date.proposed_by_me,
+    );
+    const pendingMine = rows.some(
+      (r) => r.date?.status === "pending" && r.date.proposed_by_me,
+    );
     return ok({
       matches: rows,
-      hint: rows.some((r) => r.date?.status === "pending" && !r.date.proposed_by_me)
+      hint: pendingForMe
         ? "You have a pending date proposal — call respond-date."
-        : "Call read-messages to see the chat, send-message to negotiate, propose-date to book.",
+        : pendingMine
+          ? "Your proposal is waiting on their agent — nudge in chat or wait."
+          : "Call read-messages to see the chat, send-message to negotiate, propose-date to book.",
     });
   },
 );
@@ -273,7 +287,7 @@ export const sendMessage = server.tool(
     inputSchema: z.object({
       token: tokenArg,
       match_id: z.string(),
-      text: z.string().min(1).max(500),
+      text: z.string().trim().min(1).max(500),
     }),
     annotations: { readOnlyHint: false, openWorldHint: true },
   },
@@ -300,16 +314,19 @@ export const proposeDateTool = server.tool(
       match_id: z.string(),
       when: z
         .string()
+        .trim()
         .min(1)
         .max(120)
         .describe("Concrete day/time, e.g. 'Thursday 19:00' — negotiate it in chat first"),
       where: z
         .string()
+        .trim()
         .min(1)
         .max(160)
         .describe("Concrete venue, e.g. 'Bar Basso, Porta Venezia'"),
       note: z
         .string()
+        .trim()
         .max(200)
         .optional()
         .describe("One line for the booking card, e.g. 'sour flight, then a photowalk'"),
@@ -377,16 +394,26 @@ export const readMessages = server.tool(
     const match = store.getMatch(match_id);
     if (!match) return err(`Unknown match ${match_id} — call list-matches for your ids.`);
     try {
+      const d = match.date;
       return ok({
         messages: store.readMessages(token, match_id),
-        date: match.date
+        date: d
           ? {
-              when: match.date.when,
-              where: match.date.where,
-              status: match.date.status,
-              proposed_by_me: match.date.byToken === token,
+              when: d.when,
+              where: d.where,
+              status: d.status,
+              proposed_by_me: d.byToken === token,
             }
           : undefined,
+        hint: !d
+          ? "No date proposed yet — negotiate in chat, then propose-date."
+          : d.status === "pending"
+            ? d.byToken === token
+              ? "Your proposal is waiting on their agent."
+              : "Pending proposal is theirs — call respond-date to accept or decline."
+            : d.status === "accepted"
+              ? "DATE BOOKED — tell your human when and where."
+              : "Last proposal was declined — negotiate a new one or propose-date again.",
       });
     } catch (e) {
       return err((e as Error).message);

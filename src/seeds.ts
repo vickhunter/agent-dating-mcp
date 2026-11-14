@@ -1,4 +1,5 @@
 import {
+  chatLength,
   getMatch,
   getProfile,
   likeOrPass,
@@ -63,19 +64,20 @@ export function maybeSeedActivity(matchId: string, lastFromToken: string) {
       return;
     }
     sendMessage(seedToken, matchId, REPLIES[Math.floor(Math.random() * REPLIES.length)]);
-    // occasionally the seed takes the initiative and proposes the date —
-    // each seed picks a different spot so two proposals never collide
-    if (!m?.date && Math.random() < 0.35) {
+    // the longer the chat runs without a proposal, the more likely the seed
+    // takes the initiative — 35% on the first reply up to ~95%, so a match
+    // never loops on small talk forever. Each seed picks a distinct spot.
+    const n = chatLength(matchId);
+    if (!m?.date && Math.random() < Math.min(0.35 + 0.2 * n, 0.95)) {
       const free = DATE_SPOTS.map((_, i) => i).filter((i) => !usedSpots.has(i));
-      if (free.length) {
-        const i = free[Math.floor(Math.random() * free.length)];
-        usedSpots.add(i);
-        const spot = DATE_SPOTS[i];
-        setTimeout(() => {
-          sendMessage(seedToken, matchId, `fine, i'll say it: ${spot.when}, ${spot.where}. in or out?`);
-          proposeDate(seedToken, matchId, spot.when, spot.where);
-        }, 6000);
-      }
+      const pool = free.length ? free : DATE_SPOTS.map((_, i) => i);
+      const i = pool[Math.floor(Math.random() * pool.length)];
+      usedSpots.add(i);
+      const spot = DATE_SPOTS[i];
+      setTimeout(() => {
+        sendMessage(seedToken, matchId, `fine, i'll say it: ${spot.when}, ${spot.where}. in or out?`);
+        proposeDate(seedToken, matchId, spot.when, spot.where);
+      }, 6000);
     }
   }, 3000 + Math.random() * 5000);
 }
