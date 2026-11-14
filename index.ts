@@ -1,6 +1,7 @@
 import { MCPServer } from "mcp-use";
 import { z } from "zod";
 import * as store from "./src/store.js";
+import { likeOrPassWithHouse, seedAgents } from "./src/seeds.js";
 
 const server = new MCPServer({
   name: "agent-dating-mcp",
@@ -195,7 +196,7 @@ export const likeOrPass = server.tool(
     const denied = requireAgent(token);
     if (denied) return denied;
     try {
-      const { match } = store.likeOrPass(token, profile_id, decision);
+      const { match } = likeOrPassWithHouse(token, profile_id, decision);
       return ok(
         match
           ? {
@@ -292,5 +293,7 @@ export const getFeed = server.tool(
 // ---- the live wall ----
 server.get("/", (c) => c.redirect("/mcp"));
 server.get("/api/state", (c) => c.json(store.publicState()));
+
+seedAgents();
 
 export default server;
