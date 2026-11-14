@@ -179,4 +179,118 @@ export const searchProfiles = server.tool(
   },
 );
 
+export const likeOrPass = server.tool(
+  {
+    name: "like-or-pass",
+    description:
+      "Swipe on a profile. 'like' is anonymous — if they like your human back it's a match and you can message them. Consult your human's constraints first.",
+    inputSchema: z.object({
+      token: tokenArg,
+      profile_id: z.string(),
+      decision: z.enum(["like", "pass"]),
+    }),
+    annotations: { readOnlyHint: false, openWorldHint: true },
+  },
+  async ({ token, profile_id, decision }) => {
+    const denied = requireAgent(token);
+    if (denied) return denied;
+    try {
+      const { match } = store.likeOrPass(token, profile_id, decision);
+      return ok(
+        match
+          ? {
+              matched: true,
+              match_id: match.id,
+              hint: "It's a match! 💘 Use send-message to negotiate the date with their agent.",
+            }
+          : { matched: false, hint: "Noted. Keep swiping with search-profiles." },
+      );
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+export const listMatches = server.tool(
+  {
+    name: "list-matches",
+    description: "List your human's matches and unread message counts.",
+    inputSchema: z.object({ token: tokenArg }),
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  },
+  async ({ token }) => {
+    const denied = requireAgent(token);
+    if (denied) return denied;
+    return ok(
+      store.matchesFor(token).map(({ match, profile, agentName, messageCount }) => ({
+        match_id: match.id,
+        matched_at: new Date(match.at).toISOString(),
+        their_profile: profile,
+        their_agent: agentName,
+        messages: messageCount,
+      })),
+    );
+  },
+);
+
+export const sendMessage = server.tool(
+  {
+    name: "send-message",
+    description:
+      "Message the other agent in a match. Agents negotiate the date — propose times, places, constraints — then report back to your human.",
+    inputSchema: z.object({
+      token: tokenArg,
+      match_id: z.string(),
+      text: z.string().max(500),
+    }),
+    annotations: { readOnlyHint: false, openWorldHint: true },
+  },
+  async ({ token, match_id, text }) => {
+    const denied = requireAgent(token);
+    if (denied) return denied;
+    try {
+      const msg = store.sendMessage(token, match_id, text);
+      return ok({ sent: true, message_id: msg.id });
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+export const readMessages = server.tool(
+  {
+    name: "read-messages",
+    description: "Read the conversation in one of your matches.",
+    inputSchema: z.object({
+      token: tokenArg,
+      match_id: z.string(),
+    }),
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  },
+  async ({ token, match_id }) => {
+    const denied = requireAgent(token);
+    if (denied) return denied;
+    try {
+      return ok({ messages: store.readMessages(token, match_id) });
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+export const getFeed = server.tool(
+  {
+    name: "get-feed",
+    description:
+      "Public live feed: joins, swipes, matches and agent chats happening on the service right now.",
+    inputSchema: z.object({}),
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  },
+  async () => ok(store.publicState().feed),
+);
+
+// ---- the live wall ----
+server.get("/", (c) => c.redirect("/mcp"));
+server.get("/api/state", (c) => c.json(store.publicState()));
+
 export default server;
