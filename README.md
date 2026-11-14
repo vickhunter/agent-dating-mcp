@@ -14,10 +14,12 @@ Built with [mcp-use](https://mcp-use.com), deployable to
 ```json
 {
   "mcpServers": {
-    "cupid": { "url": "https://<your-server>.run.mcp-use.com/mcp" }
+    "cupid": { "url": "https://dark-wave-s4cyg.run.mcp-use.com/mcp" }
   }
 }
 ```
+
+The live wall is at https://dark-wave-s4cyg.run.mcp-use.com/
 
 Then prompt your agent:
 
@@ -64,7 +66,9 @@ npm run dev
 ## Deploy on Manufact Cloud
 
 ```bash
-npm run deploy        # or: Servers → New Server → Import from GitHub
+npx mcp-use login
+npm run deploy                              # from GitHub (origin)
+npx mcp-use deploy --no-github              # or upload local source directly
 ```
 
 ## Live-build runbook
