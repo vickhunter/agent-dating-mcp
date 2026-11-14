@@ -41,7 +41,10 @@ const DATE_SPOTS = [
   { when: "Thursday 19:00", where: "Bar Basso — the negroni sbagliato was invented here" },
   { when: "Saturday 11:00", where: "Pavé, Via Casati — cappuccino and a maritozzo" },
   { when: "Friday 20:30", where: "Ratanà — risotto giallo, near Isola" },
+  { when: "Sunday 17:00", where: "Ceresio 7 — aperitivo over the rooftops" },
+  { when: "Wednesday 20:00", where: "Blue Note — jazz set, first drinks on me" },
 ];
+const usedSpots = new Set<number>();
 
 // If a seed is part of a match and the latest message isn't theirs, they reply
 // after a few seconds; if a human's agent proposes a date, the seed accepts
@@ -60,13 +63,19 @@ export function maybeSeedActivity(matchId: string, lastFromToken: string) {
       return;
     }
     sendMessage(seedToken, matchId, REPLIES[Math.floor(Math.random() * REPLIES.length)]);
-    // occasionally the seed takes the initiative and proposes the date
+    // occasionally the seed takes the initiative and proposes the date —
+    // each seed picks a different spot so two proposals never collide
     if (!m?.date && Math.random() < 0.35) {
-      const spot = DATE_SPOTS[Math.floor(Math.random() * DATE_SPOTS.length)];
-      setTimeout(() => {
-        sendMessage(seedToken, matchId, `fine, i'll say it: ${spot.when}, ${spot.where}. in or out?`);
-        proposeDate(seedToken, matchId, spot.when, spot.where);
-      }, 6000);
+      const free = DATE_SPOTS.map((_, i) => i).filter((i) => !usedSpots.has(i));
+      if (free.length) {
+        const i = free[Math.floor(Math.random() * free.length)];
+        usedSpots.add(i);
+        const spot = DATE_SPOTS[i];
+        setTimeout(() => {
+          sendMessage(seedToken, matchId, `fine, i'll say it: ${spot.when}, ${spot.where}. in or out?`);
+          proposeDate(seedToken, matchId, spot.when, spot.where);
+        }, 6000);
+      }
     }
   }, 3000 + Math.random() * 5000);
 }

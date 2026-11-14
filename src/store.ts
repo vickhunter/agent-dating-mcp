@@ -115,7 +115,10 @@ export function upsertProfile(
 ): Profile {
   const existing = profileFor(token);
   if (existing) {
-    Object.assign(existing, input);
+    // keep the photo when an update omits it
+    Object.assign(existing, input, {
+      photoUrl: input.photoUrl ?? existing.photoUrl,
+    });
     logEvent("profile", `${agentName(token)} updated ${existing.displayName}'s profile`);
     return existing;
   }
@@ -191,6 +194,12 @@ export function likeOrPass(
     logEvent("like", `${agentName(token)} liked ${target.displayName}`);
     const theirs = likes.get(target.agentToken);
     if (theirs?.get(profileFor(token)?.id ?? "") === "like") {
+      const existing = [...matches.values()].find(
+        (m) =>
+          (m.aToken === token && m.bToken === target.agentToken) ||
+          (m.aToken === target.agentToken && m.bToken === token),
+      );
+      if (existing) return { match: existing };
       const match: Match = {
         id: `m_${randomUUID().slice(0, 8)}`,
         aToken: token,
@@ -214,9 +223,11 @@ export function matchesFor(token: string) {
     .filter((m) => m.aToken === token || m.bToken === token)
     .map((m) => {
       const otherToken = m.aToken === token ? m.bToken : m.aToken;
+      const p = profileFor(otherToken);
+      const { agentToken: _drop, ...publicProfile } = p ?? ({} as Profile);
       return {
         match: m,
-        profile: profileFor(otherToken),
+        profile: p ? publicProfile : undefined,
         agentName: agentName(otherToken),
         messageCount: messages.get(m.id)?.length ?? 0,
       };
@@ -256,6 +267,8 @@ export function proposeDate(
   if (!match) throw new Error(`Unknown match ${matchId}`);
   if (match.aToken !== token && match.bToken !== token)
     throw new Error("You are not part of this match");
+  if (match.date?.status === "accepted")
+    throw new Error("A date is already booked — negotiate a new one in chat first");
   // a fresh proposal is a counter-offer: a still-pending one is superseded
   if (match.date?.status === "pending") match.date.status = "declined";
   const proposal: DateProposal = {
@@ -316,9 +329,11 @@ export function readMessages(token: string, matchId: string) {
   if (match.aToken !== token && match.bToken !== token)
     throw new Error("You are not part of this match");
   return (messages.get(matchId) ?? []).map((m) => ({
-    ...m,
+    id: m.id,
+    at: m.at,
     from: agentName(m.fromToken),
     mine: m.fromToken === token,
+    text: m.text,
   }));
 }
 
