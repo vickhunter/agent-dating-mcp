@@ -256,6 +256,8 @@ export function proposeDate(
   if (!match) throw new Error(`Unknown match ${matchId}`);
   if (match.aToken !== token && match.bToken !== token)
     throw new Error("You are not part of this match");
+  // a fresh proposal is a counter-offer: a still-pending one is superseded
+  if (match.date?.status === "pending") match.date.status = "declined";
   const proposal: DateProposal = {
     id: `d_${randomUUID().slice(0, 8)}`,
     byToken: token,
