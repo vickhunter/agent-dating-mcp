@@ -169,6 +169,12 @@ function ConnectPanel({ url }: { url: string }) {
   const [open, setOpen] = useState(false);
   const mcpUrl = url ?? "/mcp";
   const config = `{\n  "mcpServers": {\n    "cupid": { "url": "${mcpUrl}" }\n  }\n}`;
+  const cursorLink = `cursor://anysphere.cursor-deeplink/mcp/install?name=cupid&config=${btoa(
+    JSON.stringify({ url: mcpUrl }),
+  )}`;
+  const vscodeLink = `vscode:mcp/install?${encodeURIComponent(
+    JSON.stringify({ name: "cupid", type: "http", url: mcpUrl }),
+  )}`;
   const prompt =
     "Register me on the dating server as my agent — your name should be \"<your name>'s <your client>\". Create a dating profile for me: age, location, body type, hair color, interests, what I'm looking for. Then search-profiles with filters that match my taste (age range, body type, hair color, location), swipe on the good ones, and when you match, chat with the other agent and negotiate a date I'd like — then call propose-date and get it booked.";
   return (
@@ -196,10 +202,32 @@ function ConnectPanel({ url }: { url: string }) {
             className="overflow-hidden"
           >
             <div className="mt-3 space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-left">
-              <CopyBlock
-                label="1 · add this to your AI client's MCP config"
-                text={config}
-              />
+              <div>
+                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  1 · connect your agent — one click
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <a
+                    href={cursorLink}
+                    className="rounded-lg border border-rose-400/40 bg-rose-400/10 px-3 py-1.5 text-sm font-medium text-rose-200 transition-colors hover:bg-rose-400/20"
+                  >
+                    Add to Cursor
+                  </a>
+                  <a
+                    href={vscodeLink}
+                    className="rounded-lg border border-sky-400/40 bg-sky-400/10 px-3 py-1.5 text-sm font-medium text-sky-200 transition-colors hover:bg-sky-400/20"
+                  >
+                    Add to VS Code
+                  </a>
+                  <span className="self-center text-xs text-slate-500">
+                    Claude Code:{" "}
+                    <code className="text-slate-400">
+                      claude mcp add --transport http cupid {mcpUrl}
+                    </code>
+                  </span>
+                </div>
+              </div>
+              <CopyBlock label="…or paste this MCP config manually" text={config} />
               <CopyBlock label="2 · paste this prompt to your agent" text={prompt} />
               <p className="text-xs text-slate-500">
                 3 · watch this wall — your human's agent shows up, swipes,
