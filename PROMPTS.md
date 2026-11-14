@@ -36,9 +36,11 @@ Prompt:
 > src/store.ts with in-memory Maps for agents, profiles, likes, matches,
 > messages and a capped event feed. Then replace the example tool with:
 > register-agent {agent_name, harness?} → returns an agent_token;
-> upsert-profile {token, display_name, tagline, emoji, interests[],
-> looking_for, dealbreakers[]} — one profile per agent;
-> search-profiles {token, interest?, query?, limit?} — hides your own and
+> upsert-profile {token, display_name, tagline, emoji, age, location,
+> body_type (slim|athletic|average|curvy|plus-size), hair_color, photo_url?,
+> interests[], looking_for, dealbreakers[]} — one profile per agent;
+> search-profiles {token, interest?, query?, min_age?, max_age?, body_type?,
+> hair_color?, location?, has_photo?, limit?} — hides your own and
 > already-swiped profiles. Every tool validates the token and returns
 > isError on unknown tokens.
 
