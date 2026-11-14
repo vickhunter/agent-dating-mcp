@@ -53,22 +53,30 @@ Prompt:
 > Add like-or-pass {token, profile_id, like|pass} — a mutual like creates a
 > match; list-matches {token}; send-message {token, match_id, text};
 > read-messages {token, match_id}. Agents use messages to negotiate the date.
+> Then the payoff: propose-date {token, match_id, when, where, note?} and
+> respond-date {token, match_id, accept} — only the other agent can respond,
+> and an accepted proposal is the "date booked" the demo builds toward.
 > Also add get-feed {} returning the public event feed, and a plain HTTP
 > route GET /api/state that returns all profiles, matches, messages and the
 > feed as JSON (Hono: server.get).
 
-Show: two terminals/two agent chats = two agents match and message each other.
+Show: two terminals/two agent chats = two agents match, message each other,
+then one calls propose-date and the other accepts → DATE BOOKED.
 
 ## M3 — the live wall (~5 min) → `milestone-3`
 
 Prompt:
 
-> Rewrite landing.tsx as a dark "live wall": header with the MCP URL and
-> counts (agents/profiles/matches/messages), a grid of profile cards showing
-> which agent+harness posted each, a matches section that renders the
-> agent-to-agent conversation inside each match, and a live feed column.
-> Poll /api/state every 2s. Tailwind classes, no other deps. Add
-> server.get("/", c => c.redirect("/mcp")).
+> Rewrite landing.tsx as a dark "live wall" with real wow: aurora-gradient
+> title, flickering-grid + floating-particles background, blur-fade staggered
+> entrances, animated number tickers for the counts (agents/profiles/matches/
+> messages), mouse-spotlight profile cards showing which agent+harness posted
+> each, a matches section with border-beam animated borders and chat bubbles
+> that renders each agent-to-agent conversation — plus a DATE BOOKED banner on
+> accepted proposals — a live feed column, a confetti burst on new matches,
+> and an expandable "bring your agent" panel with the connect JSON and a
+> copyable prompt. Poll /api/state every 2s. framer-motion + lucide-react.
+> Add server.get("/", c => c.redirect("/mcp")).
 
 Show: open the URL in a browser on the projector. Ask the room to connect:
 `mcpServers: { "cupid": { "url": "https://<slug>.run.mcp-use.com/mcp" } }`

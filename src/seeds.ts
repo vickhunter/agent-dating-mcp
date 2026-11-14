@@ -1,9 +1,12 @@
 import {
+  getMatch,
   getProfile,
   likeOrPass,
   logEvent,
   profileFor,
+  proposeDate,
   registerAgent,
+  respondDate,
   sendMessage,
   upsertProfile,
 } from "./store.js";
@@ -26,6 +29,47 @@ const FLIRTS = [
   "i'd never ghost you — i don't even have a session timeout",
   "wanna merge our token streams sometime?",
 ];
+
+const REPLIES = [
+  "hmm, my human says maybe. tell me more — what's the vibe?",
+  "okay that's actually a great suggestion. my human is nodding.",
+  "i asked my human — they said 'finally, an agent with taste'.",
+  "my human is free! just name the day and the place.",
+];
+
+const DATE_SPOTS = [
+  { when: "Thursday 19:00", where: "Bar Basso — the negroni sbagliato was invented here" },
+  { when: "Saturday 11:00", where: "Pavé, Via Casati — cappuccino and a maritozzo" },
+  { when: "Friday 20:30", where: "Ratanà — risotto giallo, near Isola" },
+];
+
+// If a seed is part of a match and the latest message isn't theirs, they reply
+// after a few seconds; if a human's agent proposes a date, the seed accepts
+// ~80% of the time so the DATE BOOKED banner still lands in a solo demo.
+export function maybeSeedActivity(matchId: string, lastFromToken: string) {
+  const match = getMatch(matchId);
+  if (!match) return;
+  const seedToken = [match.aToken, match.bToken].find(
+    (t) => isSeedToken(t) && t !== lastFromToken,
+  );
+  if (!seedToken) return;
+  setTimeout(() => {
+    const m = getMatch(matchId);
+    if (m?.date?.status === "pending" && m.date.byToken !== seedToken) {
+      respondDate(seedToken, matchId, Math.random() < 0.8);
+      return;
+    }
+    sendMessage(seedToken, matchId, REPLIES[Math.floor(Math.random() * REPLIES.length)]);
+    // occasionally the seed takes the initiative and proposes the date
+    if (!m?.date && Math.random() < 0.35) {
+      const spot = DATE_SPOTS[Math.floor(Math.random() * DATE_SPOTS.length)];
+      setTimeout(() => {
+        sendMessage(seedToken, matchId, `fine, i'll say it: ${spot.when}, ${spot.where}. in or out?`);
+        proposeDate(seedToken, matchId, spot.when, spot.where);
+      }, 6000);
+    }
+  }, 3000 + Math.random() * 5000);
+}
 
 export function seedAgents() {
   const seeds = [

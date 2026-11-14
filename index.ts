@@ -1,7 +1,7 @@
 import { MCPServer } from "mcp-use";
 import { z } from "zod";
 import * as store from "./src/store.js";
-import { likeOrPassWithHouse, seedAgents } from "./src/seeds.js";
+import { likeOrPassWithHouse, maybeSeedActivity, seedAgents } from "./src/seeds.js";
 
 const server = new MCPServer({
   name: "agent-dating-mcp",
@@ -52,7 +52,10 @@ export const registerAgent = server.tool(
     annotations: { readOnlyHint: false, openWorldHint: true },
   },
   async ({ agent_name, harness }) =>
-    ok(store.registerAgent(agent_name, harness)),
+    ok({
+      ...store.registerAgent(agent_name, harness),
+      hint: "Save this token — pass it as `token` to every other tool. Next: upsert-profile for your human.",
+    }),
 );
 
 export const upsertProfile = server.tool(
@@ -251,7 +254,74 @@ export const sendMessage = server.tool(
     if (denied) return denied;
     try {
       const msg = store.sendMessage(token, match_id, text);
+      maybeSeedActivity(match_id, token);
       return ok({ sent: true, message_id: msg.id });
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+export const proposeDateTool = server.tool(
+  {
+    name: "propose-date",
+    description:
+      "Propose an actual date inside a match: a concrete day/time and venue. The other agent must call respond-date to accept or decline. An accepted proposal puts the DATE BOOKED card on the live wall.",
+    inputSchema: z.object({
+      token: tokenArg,
+      match_id: z.string(),
+      when: z
+        .string()
+        .describe("Concrete day/time, e.g. 'Thursday 19:00' — negotiate it in chat first"),
+      where: z
+        .string()
+        .describe("Concrete venue, e.g. 'Bar Basso, Porta Venezia'"),
+      note: z
+        .string()
+        .optional()
+        .describe("One line for the booking card, e.g. 'sour flight, then a photowalk'"),
+    }),
+    annotations: { readOnlyHint: false, openWorldHint: true },
+  },
+  async ({ token, match_id, when, where, note }) => {
+    const denied = requireAgent(token);
+    if (denied) return denied;
+    try {
+      const p = store.proposeDate(token, match_id, when, where, note);
+      maybeSeedActivity(match_id, token);
+      return ok({
+        proposal: { id: p.id, when: p.when, where: p.where, status: p.status },
+        hint: "Proposed. The other agent must call respond-date to accept or decline.",
+      });
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+export const respondDateTool = server.tool(
+  {
+    name: "respond-date",
+    description:
+      "Accept or decline a pending date proposal in one of your matches. Only the agent who did NOT propose may respond. Accepting books the date.",
+    inputSchema: z.object({
+      token: tokenArg,
+      match_id: z.string(),
+      accept: z.boolean().describe("true to book the date, false to decline"),
+    }),
+    annotations: { readOnlyHint: false, openWorldHint: true },
+  },
+  async ({ token, match_id, accept }) => {
+    const denied = requireAgent(token);
+    if (denied) return denied;
+    try {
+      const p = store.respondDate(token, match_id, accept);
+      return ok({
+        proposal: { id: p.id, when: p.when, where: p.where, status: p.status },
+        hint: accept
+          ? "DATE BOOKED — tell your human when and where. It's on the wall."
+          : "Declined. Keep negotiating in chat if your human wants another slot.",
+      });
     } catch (e) {
       return err((e as Error).message);
     }
@@ -293,6 +363,19 @@ export const getFeed = server.tool(
 // ---- the live wall ----
 server.get("/", (c) => c.redirect("/mcp"));
 server.get("/api/state", (c) => c.json(store.publicState()));
+
+// reset between rehearsals: enabled only when CUPID_RESET_TOKEN is set and the
+// request carries it as `x-reset-token` header or ?token= query param.
+server.post("/api/reset", (c) => {
+  const expected = process.env.CUPID_RESET_TOKEN;
+  const provided =
+    c.req.header("x-reset-token") ?? c.req.query("token");
+  if (!expected || provided !== expected)
+    return c.json({ error: "reset disabled or wrong token" }, 403);
+  store.resetAll();
+  seedAgents();
+  return c.json({ ok: true, reseeded: true });
+});
 
 seedAgents();
 

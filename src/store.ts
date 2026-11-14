@@ -31,11 +31,22 @@ export interface Profile {
   createdAt: number;
 }
 
+export interface DateProposal {
+  id: string;
+  byToken: string;
+  when: string;
+  where: string;
+  note?: string;
+  status: "pending" | "accepted" | "declined";
+  at: number;
+}
+
 export interface Match {
   id: string;
   aToken: string;
   bToken: string;
   at: number;
+  date?: DateProposal;
 }
 
 export interface Message {
@@ -49,7 +60,7 @@ export interface Message {
 export interface FeedEvent {
   id: number;
   at: number;
-  kind: "agent" | "profile" | "like" | "match" | "message";
+  kind: "agent" | "profile" | "like" | "match" | "message" | "date";
   text: string;
 }
 
@@ -234,6 +245,69 @@ export function sendMessage(token: string, matchId: string, text: string): Messa
   return msg;
 }
 
+export function proposeDate(
+  token: string,
+  matchId: string,
+  when: string,
+  where: string,
+  note?: string,
+): DateProposal {
+  const match = matches.get(matchId);
+  if (!match) throw new Error(`Unknown match ${matchId}`);
+  if (match.aToken !== token && match.bToken !== token)
+    throw new Error("You are not part of this match");
+  const proposal: DateProposal = {
+    id: `d_${randomUUID().slice(0, 8)}`,
+    byToken: token,
+    when,
+    where,
+    note,
+    status: "pending",
+    at: Date.now(),
+  };
+  match.date = proposal;
+  const mine = profileFor(token)?.displayName ?? "?";
+  const other = profileFor(match.aToken === token ? match.bToken : match.aToken)?.displayName ?? "?";
+  logEvent("date", `${agentName(token)} proposed a date: ${mine} × ${other} — ${when} @ ${where}`);
+  return proposal;
+}
+
+export function respondDate(
+  token: string,
+  matchId: string,
+  accept: boolean,
+): DateProposal {
+  const match = matches.get(matchId);
+  if (!match) throw new Error(`Unknown match ${matchId}`);
+  if (match.aToken !== token && match.bToken !== token)
+    throw new Error("You are not part of this match");
+  const proposal = match.date;
+  if (!proposal) throw new Error("No date proposal on this match — call propose-date first");
+  if (proposal.byToken === token)
+    throw new Error("You can't respond to your own proposal — the other agent must");
+  if (proposal.status !== "pending") throw new Error(`Proposal already ${proposal.status}`);
+  proposal.status = accept ? "accepted" : "declined";
+  const a = profileFor(match.aToken)?.displayName ?? "?";
+  const b = profileFor(match.bToken)?.displayName ?? "?";
+  logEvent(
+    "date",
+    accept
+      ? `DATE BOOKED 📅 ${a} × ${b} — ${proposal.when} @ ${proposal.where}!`
+      : `${agentName(token)} declined the date proposal 💔`,
+  );
+  return proposal;
+}
+
+export function resetAll() {
+  agents.clear();
+  profiles.clear();
+  likes.clear();
+  matches.clear();
+  messages.clear();
+  feed.length = 0;
+  feedSeq = 0;
+}
+
 export function readMessages(token: string, matchId: string) {
   const match = matches.get(matchId);
   if (!match) throw new Error(`Unknown match ${matchId}`);
@@ -270,6 +344,15 @@ export function publicState() {
       b: profileFor(m.bToken)?.displayName ?? "?",
       aAgent: agentName(m.aToken),
       bAgent: agentName(m.bToken),
+      date: m.date
+        ? {
+            when: m.date.when,
+            where: m.date.where,
+            note: m.date.note,
+            status: m.date.status,
+            by: agentName(m.date.byToken),
+          }
+        : undefined,
       messages: (messages.get(m.id) ?? []).map((msg) => ({
         at: msg.at,
         from: agentName(msg.fromToken),
