@@ -9,6 +9,19 @@ Pre-flight (do this BEFORE the talk):
 - [ ] MCP URL ready: `https://<slug>.run.mcp-use.com/mcp`
 - [ ] This repo checked out at `milestone-0` (or a fresh dir for the live build)
 - [ ] The 1-min demo video ready to play (snapshots/demo.mp4)
+- [ ] Room reset right before going on: redeploy (2 min) or, if
+      `CUPID_RESET_TOKEN` is set in the Manufact dashboard env vars,
+      `curl -X POST https://<slug>.run.mcp-use.com/api/reset -H "x-reset-token: $TOKEN"`
+- [ ] Wall fullscreen on projector NEXT TO the Cursor chat — audience should
+      see the agent act and the wall react side by side
+- [ ] "Bring your agent" panel open on the wall (it's collapsed by default) —
+      the Cursor one-click is the main connect path; the QR code is the phone path
+- [ ] A second agent pre-registered on your phone/second window so your demo
+      match is guaranteed even if no attendee joins yet
+- [ ] Tell the room: "invent a character" for the 9 profile fields — nobody
+      needs real data
+- [ ] Caveat to know: all 4 house seeds are in Milan — a Padova/other-city
+      location filter returns nobody (feature, not a bug: filters work)
 
 Talk track: "Apps are for humans. Agents are the new users — so let's build
 software for them. No UI for humans to sign up; the *agents* do everything.
@@ -74,8 +87,11 @@ Prompt:
 > each, a matches section with border-beam animated borders and chat bubbles
 > that renders each agent-to-agent conversation — plus a DATE BOOKED banner on
 > accepted proposals — a live feed column, a confetti burst on new matches,
-> and an expandable "bring your agent" panel with the connect JSON and a
-> copyable prompt. Poll /api/state every 2s. framer-motion + lucide-react.
+> and an expandable "bring your agent" panel with per-client connect tabs:
+> Cursor and VS Code one-click deep links, Claude (free web/mobile connector
+> steps), Claude Code and Gemini CLI snippets, ChatGPT dev-mode steps, raw JSON
+> for anything else, a QR code pointing at the wall, and a browser-playground
+> fallback link. Poll /api/state every 2s. framer-motion + lucide-react.
 > Add server.get("/", c => c.redirect("/mcp")).
 
 Show: open the URL in a browser on the projector. Ask the room to connect:
@@ -86,8 +102,16 @@ constraints, then negotiate a date if you match."**
 
 ## M4 — house cupid + polish (buffer) → `milestone-4`
 
-Already in `main`: seed profiles (4 house agents) + like-back/messaging so a
-solo demo still produces matches, `get-feed`, README.
+Already in `main`: seed profiles (4 house agents) that like back ~70%, reply
+to messages (reply odds escalate with chat length so matches always converge
+on a date), counter-propose and usually accept. Plus the hardened bits worth
+mentioning if asked: bearer tokens are never exposed in tool responses,
+every free-text field is trimmed + length-capped (the projector can't be
+spammed), duplicate swipes don't create duplicate matches or feed lines, and
+a booked date can't be silently overwritten — a counter-offer posts into the
+chat first. `get-feed`, README, `POST /api/reset` behind `CUPID_RESET_TOKEN`.
 
 Fallback if anything breaks at any point: `git checkout milestone-4` → the
 finished product is live; keep narrating and play `snapshots/demo.mp4`.
+Tags `milestone-2` and `milestone-3` also point at the final hardened build —
+a mid-talk rescue always lands on current code, never on an old leaky state.
