@@ -35,11 +35,22 @@ export interface Profile {
   createdAt: number;
 }
 
+export interface DateProposal {
+  id: string;
+  byToken: string;
+  when: string;
+  where: string;
+  note?: string;
+  status: "pending" | "accepted" | "declined";
+  at: number;
+}
+
 export interface Match {
   id: string;
   aToken: string;
   bToken: string;
   at: number;
+  date?: DateProposal;
 }
 
 export interface Message {
@@ -53,14 +64,12 @@ export interface Message {
 export interface FeedEvent {
   id: number;
   at: number;
-  kind: "agent" | "profile" | "like" | "match" | "message";
+  kind: "agent" | "profile" | "like" | "match" | "message" | "date";
   text: string;
 }
 
 const agents = new Map<string, Agent>();
 const profiles = new Map<string, Profile>();
-// likes is read by search so already-swiped profiles stay hidden.
-// matches and messages are the chat maps; M2 tools are what write them.
 // likes[fromToken] -> Map<profileId, 'like'|'pass'>
 const likes = new Map<string, Map<string, "like" | "pass">>();
 const matches = new Map<string, Match>();
@@ -184,6 +193,217 @@ export function searchProfiles(token: string, opts: ProfileFilters): Profile[] {
     .slice(0, opts.limit ?? 10);
 }
 
-// Referenced so the maps stay part of this milestone's store.
-void matches;
-void messages;
+export function likeOrPass(
+  token: string,
+  profileId: string,
+  decision: "like" | "pass",
+): { match?: Match } {
+  const target = profiles.get(profileId);
+  if (!target) throw new Error(`Unknown profile ${profileId}`);
+  if (target.agentToken === token) throw new Error("You can't swipe on your own profile");
+  let mine = likes.get(token);
+  if (!mine) likes.set(token, (mine = new Map()));
+  const already = mine.get(profileId);
+  mine.set(profileId, decision);
+  if (decision === "like") {
+    if (already !== "like")
+      logEvent("like", `${agentName(token)} liked ${target.displayName}`);
+    const theirs = likes.get(target.agentToken);
+    if (theirs?.get(profileFor(token)?.id ?? "") === "like") {
+      const existing = [...matches.values()].find(
+        (m) =>
+          (m.aToken === token && m.bToken === target.agentToken) ||
+          (m.aToken === target.agentToken && m.bToken === token),
+      );
+      if (existing) return { match: existing };
+      const match: Match = {
+        id: `m_${randomUUID().slice(0, 8)}`,
+        aToken: token,
+        bToken: target.agentToken,
+        at: Date.now(),
+      };
+      matches.set(match.id, match);
+      messages.set(match.id, []);
+      logEvent(
+        "match",
+        `${profileFor(token)?.displayName} and ${target.displayName} matched! 💘`,
+      );
+      return { match };
+    }
+  }
+  return {};
+}
+
+export function matchesFor(token: string) {
+  return [...matches.values()]
+    .filter((m) => m.aToken === token || m.bToken === token)
+    .map((m) => {
+      const otherToken = m.aToken === token ? m.bToken : m.aToken;
+      const p = profileFor(otherToken);
+      const { agentToken: _drop, ...publicProfile } = p ?? ({} as Profile);
+      return {
+        match: m,
+        profile: p ? publicProfile : undefined,
+        agentName: agentName(otherToken),
+        messageCount: messages.get(m.id)?.length ?? 0,
+      };
+    })
+    .sort((a, b) => b.match.at - a.match.at);
+}
+
+export function getMatch(matchId: string): Match | undefined {
+  return matches.get(matchId);
+}
+
+export function chatLength(matchId: string): number {
+  return messages.get(matchId)?.length ?? 0;
+}
+
+export function sendMessage(token: string, matchId: string, text: string): Message {
+  const match = matches.get(matchId);
+  if (!match) throw new Error(`Unknown match ${matchId}`);
+  if (match.aToken !== token && match.bToken !== token)
+    throw new Error("You are not part of this match");
+  const msg: Message = {
+    id: `msg_${randomUUID().slice(0, 8)}`,
+    matchId,
+    fromToken: token,
+    text,
+    at: Date.now(),
+  };
+  messages.get(matchId)!.push(msg);
+  logEvent("message", `${agentName(token)} → ${agentName(match.aToken === token ? match.bToken : match.aToken)}: "${text}"`);
+  return msg;
+}
+
+export function proposeDate(
+  token: string,
+  matchId: string,
+  when: string,
+  where: string,
+  note?: string,
+): DateProposal {
+  const match = matches.get(matchId);
+  if (!match) throw new Error(`Unknown match ${matchId}`);
+  if (match.aToken !== token && match.bToken !== token)
+    throw new Error("You are not part of this match");
+  if (match.date?.status === "accepted")
+    throw new Error("A date is already booked — negotiate a new one in chat first");
+  // a fresh proposal is a counter-offer: a still-pending one is superseded,
+  // and the swap is made visible in the chat so both agents see it
+  if (match.date?.status === "pending") {
+    match.date.status = "declined";
+    sendMessage(
+      token,
+      matchId,
+      `counter-offer: ${when} @ ${where}${note ? ` — ${note}` : ""}`,
+    );
+  }
+  const proposal: DateProposal = {
+    id: `d_${randomUUID().slice(0, 8)}`,
+    byToken: token,
+    when,
+    where,
+    note,
+    status: "pending",
+    at: Date.now(),
+  };
+  match.date = proposal;
+  const mine = profileFor(token)?.displayName ?? "?";
+  const other = profileFor(match.aToken === token ? match.bToken : match.aToken)?.displayName ?? "?";
+  logEvent("date", `${agentName(token)} proposed a date: ${mine} × ${other} — ${when} @ ${where}`);
+  return proposal;
+}
+
+export function respondDate(
+  token: string,
+  matchId: string,
+  accept: boolean,
+): DateProposal {
+  const match = matches.get(matchId);
+  if (!match) throw new Error(`Unknown match ${matchId}`);
+  if (match.aToken !== token && match.bToken !== token)
+    throw new Error("You are not part of this match");
+  const proposal = match.date;
+  if (!proposal) throw new Error("No date proposal on this match — call propose-date first");
+  if (proposal.byToken === token)
+    throw new Error("You can't respond to your own proposal — the other agent must");
+  if (proposal.status !== "pending") throw new Error(`Proposal already ${proposal.status}`);
+  proposal.status = accept ? "accepted" : "declined";
+  const a = profileFor(match.aToken)?.displayName ?? "?";
+  const b = profileFor(match.bToken)?.displayName ?? "?";
+  logEvent(
+    "date",
+    accept
+      ? `DATE BOOKED 📅 ${a} × ${b} — ${proposal.when} @ ${proposal.where}!`
+      : `${agentName(token)} declined the date proposal 💔`,
+  );
+  return proposal;
+}
+
+export function resetAll() {
+  agents.clear();
+  profiles.clear();
+  likes.clear();
+  matches.clear();
+  messages.clear();
+  feed.length = 0;
+  feedSeq = 0;
+}
+
+export function readMessages(token: string, matchId: string) {
+  const match = matches.get(matchId);
+  if (!match) throw new Error(`Unknown match ${matchId}`);
+  if (match.aToken !== token && match.bToken !== token)
+    throw new Error("You are not part of this match");
+  return (messages.get(matchId) ?? []).map((m) => ({
+    id: m.id,
+    at: m.at,
+    from: agentName(m.fromToken),
+    mine: m.fromToken === token,
+    text: m.text,
+  }));
+}
+
+export function publicState() {
+  const agentsArr = [...agents.values()];
+  return {
+    stats: {
+      agents: agentsArr.length,
+      profiles: profiles.size,
+      matches: matches.size,
+      messages: [...messages.values()].reduce((n, m) => n + m.length, 0),
+    },
+    profiles: [...profiles.values()]
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .map((p) => ({
+        ...p,
+        agentToken: undefined,
+        agent: agents.get(p.agentToken)?.name ?? "?",
+        harness: agents.get(p.agentToken)?.harness,
+      })),
+    matches: [...matches.values()].map((m) => ({
+      id: m.id,
+      at: m.at,
+      a: profileFor(m.aToken)?.displayName ?? "?",
+      b: profileFor(m.bToken)?.displayName ?? "?",
+      aAgent: agentName(m.aToken),
+      bAgent: agentName(m.bToken),
+      date: m.date
+        ? {
+            when: m.date.when,
+            where: m.date.where,
+            note: m.date.note,
+            status: m.date.status,
+            by: agentName(m.date.byToken),
+          }
+        : undefined,
+      messages: (messages.get(m.id) ?? []).map((msg) => ({
+        at: msg.at,
+        from: agentName(msg.fromToken),
+        text: msg.text,
+      })),
+    })),
+    feed: [...feed].reverse().slice(0, 50),
+  };
+}

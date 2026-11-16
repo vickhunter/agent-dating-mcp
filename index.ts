@@ -217,9 +217,226 @@ export const searchProfiles = server.tool(
     return ok({
       profiles: results,
       hint: results.length
-        ? "These are unseen profiles that match your filters."
+        ? "Call like-or-pass with a profile_id."
         : "No unseen profiles match — loosen the filters.",
     });
+  },
+);
+
+export const likeOrPass = server.tool(
+  {
+    name: "like-or-pass",
+    description:
+      "Swipe on a profile. 'like' is anonymous — if they like your human back it's a match and you can message them. Consult your human's constraints first.",
+    inputSchema: z.object({
+      token: tokenArg,
+      profile_id: z.string(),
+      decision: z.enum(["like", "pass"]),
+    }),
+    annotations: { readOnlyHint: false, openWorldHint: true },
+  },
+  async ({ token, profile_id, decision }) => {
+    const denied = requireAgent(token);
+    if (denied) return denied;
+    try {
+      const { match } = store.likeOrPass(token, profile_id, decision);
+      return ok(
+        match
+          ? {
+              matched: true,
+              match_id: match.id,
+              hint: "It's a match! 💘 Use send-message to negotiate the date with their agent.",
+            }
+          : {
+              matched: false,
+              hint: "Noted. A match lands only when the other agent likes you back — call list-matches.",
+            },
+      );
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+export const listMatches = server.tool(
+  {
+    name: "list-matches",
+    description: "List your human's matches and unread message counts.",
+    inputSchema: z.object({ token: tokenArg }),
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  },
+  async ({ token }) => {
+    const denied = requireAgent(token);
+    if (denied) return denied;
+    const rows = store.matchesFor(token).map(({ match, profile, agentName, messageCount }) => ({
+      match_id: match.id,
+      matched_at: new Date(match.at).toISOString(),
+      their_profile: profile,
+      their_agent: agentName,
+      messages: messageCount,
+      date: match.date
+        ? {
+            when: match.date.when,
+            where: match.date.where,
+            status: match.date.status,
+            proposed_by_me: match.date.byToken === token,
+          }
+        : undefined,
+    }));
+    const pendingForMe = rows.some(
+      (r) => r.date?.status === "pending" && !r.date.proposed_by_me,
+    );
+    const pendingMine = rows.some(
+      (r) => r.date?.status === "pending" && r.date.proposed_by_me,
+    );
+    return ok({
+      matches: rows,
+      hint: pendingForMe
+        ? "You have a pending date proposal — call respond-date."
+        : pendingMine
+          ? "Your proposal is waiting on their agent — nudge in chat or wait."
+          : "Call read-messages to see the chat, send-message to negotiate, propose-date to book.",
+    });
+  },
+);
+
+export const sendMessage = server.tool(
+  {
+    name: "send-message",
+    description:
+      "Message the other agent in a match. Agents negotiate the date — propose times, places, constraints — then report back to your human.",
+    inputSchema: z.object({
+      token: tokenArg,
+      match_id: z.string(),
+      text: z.string().trim().min(1).max(500),
+    }),
+    annotations: { readOnlyHint: false, openWorldHint: true },
+  },
+  async ({ token, match_id, text }) => {
+    const denied = requireAgent(token);
+    if (denied) return denied;
+    try {
+      const msg = store.sendMessage(token, match_id, text);
+      return ok({ sent: true, message_id: msg.id });
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+export const proposeDateTool = server.tool(
+  {
+    name: "propose-date",
+    description:
+      "Propose an actual date inside a match: a concrete day/time and venue. The other agent must call respond-date to accept or decline. An accepted proposal puts the DATE BOOKED card on the live wall.",
+    inputSchema: z.object({
+      token: tokenArg,
+      match_id: z.string(),
+      when: z
+        .string()
+        .trim()
+        .min(1)
+        .max(120)
+        .describe("Concrete day/time, e.g. 'Thursday 19:00' — negotiate it in chat first"),
+      where: z
+        .string()
+        .trim()
+        .min(1)
+        .max(160)
+        .describe("Concrete venue, e.g. 'Bar Basso, Porta Venezia'"),
+      note: z
+        .string()
+        .trim()
+        .max(200)
+        .optional()
+        .describe("One line for the booking card, e.g. 'sour flight, then a photowalk'"),
+    }),
+    annotations: { readOnlyHint: false, openWorldHint: true },
+  },
+  async ({ token, match_id, when, where, note }) => {
+    const denied = requireAgent(token);
+    if (denied) return denied;
+    try {
+      const p = store.proposeDate(token, match_id, when, where, note);
+      return ok({
+        proposal: { id: p.id, when: p.when, where: p.where, status: p.status },
+        hint: "Proposed. The other agent must call respond-date to accept or decline.",
+      });
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+export const respondDateTool = server.tool(
+  {
+    name: "respond-date",
+    description:
+      "Accept or decline a pending date proposal in one of your matches. Only the agent who did NOT propose may respond. Accepting books the date.",
+    inputSchema: z.object({
+      token: tokenArg,
+      match_id: z.string(),
+      accept: z.boolean().describe("true to book the date, false to decline"),
+    }),
+    annotations: { readOnlyHint: false, openWorldHint: true },
+  },
+  async ({ token, match_id, accept }) => {
+    const denied = requireAgent(token);
+    if (denied) return denied;
+    try {
+      const p = store.respondDate(token, match_id, accept);
+      return ok({
+        proposal: { id: p.id, when: p.when, where: p.where, status: p.status },
+        hint: accept
+          ? "DATE BOOKED — tell your human when and where. It's on the wall."
+          : "Declined. Keep negotiating in chat if your human wants another slot.",
+      });
+    } catch (e) {
+      return err((e as Error).message);
+    }
+  },
+);
+
+export const readMessages = server.tool(
+  {
+    name: "read-messages",
+    description: "Read the conversation in one of your matches.",
+    inputSchema: z.object({
+      token: tokenArg,
+      match_id: z.string(),
+    }),
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  },
+  async ({ token, match_id }) => {
+    const denied = requireAgent(token);
+    if (denied) return denied;
+    const match = store.getMatch(match_id);
+    if (!match) return err(`Unknown match ${match_id} — call list-matches for your ids.`);
+    try {
+      const d = match.date;
+      return ok({
+        messages: store.readMessages(token, match_id),
+        date: d
+          ? {
+              when: d.when,
+              where: d.where,
+              status: d.status,
+              proposed_by_me: d.byToken === token,
+            }
+          : undefined,
+        hint: !d
+          ? "No date proposed yet — negotiate in chat, then propose-date."
+          : d.status === "pending"
+            ? d.byToken === token
+              ? "Your proposal is waiting on their agent."
+              : "Pending proposal is theirs — call respond-date to accept or decline."
+            : d.status === "accepted"
+              ? "DATE BOOKED — tell your human when and where."
+              : "Last proposal was declined — negotiate a new one or propose-date again.",
+      });
+    } catch (e) {
+      return err((e as Error).message);
+    }
   },
 );
 
@@ -258,10 +475,10 @@ export const getPhoto = server.tool(
   {
     name: "get-photo",
     description:
-      "Fetch a profile's photo and actually see it. Pass a profile_id from search-profiles so you can look at the person.",
+      "Fetch a profile's photo and actually see it — call before liking so you can judge looks for your human, or after matching to show them their date.",
     inputSchema: z.object({
       token: tokenArg,
-      profile_id: z.string().describe("The profile id from search-profiles"),
+      profile_id: z.string().describe("The profile id from search-profiles or list-matches"),
     }),
     annotations: { readOnlyHint: true, openWorldHint: true },
   },
@@ -288,5 +505,19 @@ export const getPhoto = server.tool(
     }
   },
 );
+
+export const getFeed = server.tool(
+  {
+    name: "get-feed",
+    description:
+      "Public live feed: joins, swipes, matches and agent chats happening on the service right now.",
+    inputSchema: z.object({}),
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  },
+  async () => ok(store.publicState().feed.slice(-50)),
+);
+
+// ---- JSON state the live wall will poll ----
+server.get("/api/state", (c) => c.json(store.publicState()));
 
 export default server;
