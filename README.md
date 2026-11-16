@@ -1,3 +1,17 @@
+# Checkpoint M0 — hello MCP
+
+Scaffold only: tool `fetch-weather`, prompt `review-code`, default landing page.
+No dating tools. Do not deploy this over the meetup server
+`https://dark-wave-s4cyg.run.mcp-use.com`.
+
+Runbook: [PROMPTS.md](./PROMPTS.md).
+
+```bash
+git checkout -f checkpoint-m0 && npm install && npm run dev
+```
+
+---
+
 # MCP Server built with mcp-use
 
 This is an MCP server project bootstrapped with [`create-mcp-use-app`](https://mcp-use.com/docs/typescript/getting-started/quickstart).
