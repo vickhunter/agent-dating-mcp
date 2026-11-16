@@ -70,6 +70,10 @@ npm run dev
 
 ## Deploy on Manufact Cloud
 
+The meetup server is already live at
+https://dark-wave-s4cyg.run.mcp-use.com/mcp . Deploying is optional, and a
+checkpoint should not be deployed over that URL.
+
 ```bash
 npx mcp-use login
 npm run deploy                              # from GitHub (origin)
@@ -78,7 +82,17 @@ npx mcp-use deploy --no-github              # or upload local source directly
 
 ## Live-build runbook
 
-`PROMPTS.md` has the exact per-milestone prompts, talk track and fallback plan
-for building this live in ~25 minutes. `git tag milestone-0..4` are
-recoverable checkpoints; `snapshots/` has screenshots, a CLI transcript and a
+`PROMPTS.md` is the 20-minute meetup script (M0 4 min, M1 5, M2 6, M3 5) plus
+an M4 buffer and an optional Manufact deploy. Rescue tags `checkpoint-m0` …
+`checkpoint-m4` are the tree each prompt leaves behind:
+
+```bash
+git checkout -f checkpoint-m1 && npm install && npm run dev
+```
+
+Swap the number for the milestone you need. Checkout detaches HEAD and does
+not move `main`. The room stays on the deployed server above.
+
+The older `milestone-0` … `milestone-4` tags are still in the repo. They are
+not these checkpoints. `snapshots/` has screenshots, a CLI transcript and a
 1-min demo video.
