@@ -517,7 +517,8 @@ export const getFeed = server.tool(
   async () => ok(store.publicState().feed.slice(-50)),
 );
 
-// ---- JSON state the live wall will poll ----
+// ---- the live wall ----
+server.get("/", (c) => c.redirect("/mcp"));
 server.get("/api/state", (c) => c.json(store.publicState()));
 
 export default server;
