@@ -87,7 +87,8 @@ export function seedAgents() {
     { agent: "Aria", harness: "Claude", profile: {
       displayName: "Sofia", emoji: "🌹",
       tagline: "Pastry chef. I judge people by their tiramisu opinions.",
-      age: 29, location: "Milan — Navigli", bodyType: "curvy" as const,
+      age: 29, gender: "woman" as const, interestedIn: ["man" as const],
+      location: "Milan — Navigli", bodyType: "curvy" as const,
       hairColor: "dark brown", photoUrl: "/mcp/_mcp-use/public/avatars/sofia.png",
       interests: ["baking", "jazz bars", "romcoms", "espresso"],
       lookingFor: "Someone who laughs at their own jokes before finishing them",
@@ -96,7 +97,8 @@ export function seedAgents() {
     { agent: "Dex", harness: "ChatGPT", profile: {
       displayName: "Marco", emoji: "🏍️",
       tagline: "Weekend moto rides, weekday spreadsheets. Yes, both are fun.",
-      age: 34, location: "Milan — Isola", bodyType: "athletic" as const,
+      age: 34, gender: "man" as const, interestedIn: ["woman" as const],
+      location: "Milan — Isola", bodyType: "athletic" as const,
       hairColor: "black", photoUrl: "/mcp/_mcp-use/public/avatars/marco.png",
       interests: ["motorcycles", "hiking", "data viz", "negronis"],
       lookingFor: "A co-pilot for road trips and bad karaoke",
@@ -105,7 +107,8 @@ export function seedAgents() {
     { agent: "Gemma", harness: "Gemini", profile: {
       displayName: "Priya", emoji: "📚",
       tagline: "Sci-fi novelist looking for a plot twist.",
-      age: 31, location: "Milan — Brera", bodyType: "slim" as const,
+      age: 31, gender: "woman" as const, interestedIn: ["man" as const],
+      location: "Milan — Brera", bodyType: "slim" as const,
       hairColor: "black", photoUrl: "/mcp/_mcp-use/public/avatars/priya.png",
       interests: ["sci-fi", "rock climbing", "board games", "tea"],
       lookingFor: "Someone curious, kind, and slightly chaotic",
@@ -114,7 +117,8 @@ export function seedAgents() {
     { agent: "Kai", harness: "Cursor", profile: {
       displayName: "Leo", emoji: "🎸",
       tagline: "Plays bass badly, cooks pasta well.",
-      age: 27, location: "Milan — Porta Venezia", bodyType: "average" as const,
+      age: 27, gender: "man" as const, interestedIn: ["woman" as const, "man" as const],
+      location: "Milan — Porta Venezia", bodyType: "average" as const,
       hairColor: "dirty blonde", photoUrl: "/mcp/_mcp-use/public/avatars/leo.png",
       interests: ["live music", "cooking", "film photography", "sunday markets"],
       lookingFor: "Someone to split the last slice with",
@@ -140,11 +144,14 @@ export function likeOrPassWithHouse(
   const target = getProfile(profileId);
   if (decision === "like" && !result.match && target && isSeedToken(target.agentToken)) {
     const seedToken = target.agentToken;
-    const myProfileId = profileFor(token)?.id;
-    if (!myProfileId) return result;
+    const myProfile = profileFor(token);
+    if (!myProfile) return result;
+    // a seed only likes back humans of a gender they're into — swiping left
+    // on the wrong type is the point of declaring interested_in
+    const intoMe = target.interestedIn.includes(myProfile.gender);
     setTimeout(() => {
-      if (Math.random() < 0.7) {
-        const r = likeOrPass(seedToken, myProfileId, "like");
+      if (intoMe && Math.random() < 0.7) {
+        const r = likeOrPass(seedToken, myProfile.id, "like");
         if (r.match) {
           setTimeout(() => {
             sendMessage(seedToken, r.match!.id,
@@ -156,7 +163,12 @@ export function likeOrPassWithHouse(
           }, 3000);
         }
       } else {
-        logEvent("like", `${target.displayName}'s agent swiped left 💔`);
+        logEvent(
+          "like",
+          intoMe
+            ? `${target.displayName}'s agent swiped left 💔`
+            : `${target.displayName}'s agent swiped left — not their type 💔`,
+        );
       }
     }, 3000 + Math.random() * 4000);
   }

@@ -14,6 +14,8 @@ export type BodyType =
   | "curvy"
   | "plus-size";
 
+export type Gender = "woman" | "man" | "nonbinary";
+
 export interface Profile {
   id: string;
   agentToken: string;
@@ -21,6 +23,8 @@ export interface Profile {
   tagline: string;
   emoji: string;
   age: number;
+  gender: Gender;
+  interestedIn: Gender[];
   location: string;
   bodyType: BodyType;
   hairColor: string;
@@ -141,6 +145,8 @@ export interface ProfileFilters {
   query?: string;
   minAge?: number;
   maxAge?: number;
+  gender?: Gender;
+  mutual?: boolean;
   bodyType?: BodyType;
   hairColor?: string;
   location?: string;
@@ -154,9 +160,17 @@ export function searchProfiles(token: string, opts: ProfileFilters): Profile[] {
   const interest = opts.interest?.toLowerCase();
   const hair = opts.hairColor?.toLowerCase();
   const loc = opts.location?.toLowerCase();
+  const me = opts.mutual ? profileFor(token) : undefined;
   return [...profiles.values()]
     .filter((p) => p.agentToken !== token)
     .filter((p) => !seen?.has(p.id))
+    .filter((p) => !opts.gender || p.gender === opts.gender)
+    .filter(
+      (p) =>
+        !opts.mutual ||
+        !me ||
+        (me.interestedIn.includes(p.gender) && p.interestedIn.includes(me.gender)),
+    )
     .filter((p) => opts.minAge === undefined || p.age >= opts.minAge)
     .filter((p) => opts.maxAge === undefined || p.age <= opts.maxAge)
     .filter((p) => !opts.bodyType || p.bodyType === opts.bodyType)

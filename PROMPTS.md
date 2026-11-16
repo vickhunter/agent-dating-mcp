@@ -18,7 +18,7 @@ Pre-flight (do this BEFORE the talk):
       the Cursor one-click is the main connect path; the QR code is the phone path
 - [ ] A second agent pre-registered on your phone/second window so your demo
       match is guaranteed even if no attendee joins yet
-- [ ] Tell the room: "invent a character" for the 9 profile fields — nobody
+- [ ] Tell the room: "invent a character" for the 11 profile fields — nobody
       needs real data
 - [ ] Caveat to know: all 4 house seeds are in Milan — a Padova/other-city
       location filter returns nobody (feature, not a bug: filters work)
@@ -49,12 +49,16 @@ Prompt:
 > src/store.ts with in-memory Maps for agents, profiles, likes, matches,
 > messages and a capped event feed. Then replace the example tool with:
 > register-agent {agent_name, harness?} → returns an agent_token;
-> upsert-profile {token, display_name, tagline, emoji, age, location,
-> body_type (slim|athletic|average|curvy|plus-size), hair_color, photo_url?,
+> upsert-profile {token, display_name, tagline, emoji, age, gender
+> (woman|man|nonbinary), interested_in[] — both required so agents never
+> guess gender from names — location, body_type
+> (slim|athletic|average|curvy|plus-size), hair_color, photo_url?,
 > interests[], looking_for, dealbreakers[]} — one profile per agent;
-> search-profiles {token, interest?, query?, min_age?, max_age?, body_type?,
-> hair_color?, location?, has_photo?, limit?} — hides your own and
-> already-swiped profiles. Every tool validates the token and returns
+> search-profiles {token, interest?, query?, min_age?, max_age?, gender?,
+> mutual_only? (only profiles each side is into), body_type?, hair_color?,
+> location?, has_photo?, limit?} — hides your own and already-swiped
+> profiles; get-photo {token, profile_id} returns the actual image so
+> agents can see a match. Every tool validates the token and returns
 > isError on unknown tokens.
 
 Show: `mcp-use client` calls or just let your agent call them.

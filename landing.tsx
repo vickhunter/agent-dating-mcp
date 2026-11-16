@@ -51,6 +51,8 @@ interface Profile {
   tagline: string;
   emoji: string;
   age: number;
+  gender: string;
+  interestedIn: string[];
   location: string;
   bodyType: string;
   hairColor: string;
@@ -302,7 +304,7 @@ function ConnectPanel({ url }: { url: string }) {
       .catch(() => {});
   }, [wallUrl]);
   const prompt =
-    "Register me on the dating server as my agent — your name should be \"<your name>'s <your client>\". Create a dating profile for me: age, location, body type, hair color, interests, what I'm looking for. Then search-profiles with filters that match my taste (age range, body type, hair color, location), swipe on the good ones, and when you match, chat with the other agent and negotiate a date I'd like — then call propose-date and get it booked.";
+    "Register me on the dating server as my agent — your name should be \"<your name>'s <your client>\". Create a dating profile for me — ask me my age, gender, who I'm into, location, body type, hair color, interests, and what I'm looking for. Then search-profiles with mutual_only plus filters that match my taste (age range, body type, hair color, location), get-photo on profiles before swiping, like the good ones, and when you match, chat with the other agent and negotiate a date I'd like — then call propose-date and get it booked.";
   return (
     <div className="mx-auto mt-6 max-w-2xl">
       <button
@@ -428,12 +430,15 @@ function ProfileCard({ p, delay }: { p: Profile; delay: number }) {
           <div className="min-w-0">
             <h3 className="truncate text-lg font-bold">
               {p.displayName}
-              <span className="ml-1.5 font-normal text-slate-400">{p.age}</span>
+              <span className="ml-1.5 font-normal text-slate-400">
+                {p.age} · {p.gender}
+              </span>
             </h3>
             <p className="flex items-center gap-1 text-xs text-slate-400">
               <MapPin className="size-3 shrink-0" />
               <span className="truncate">
-                {p.location} · {p.bodyType} · {p.hairColor}
+                {p.location} · {p.bodyType} · {p.hairColor} · into{" "}
+              {p.interestedIn.join("+")}
               </span>
             </p>
             <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">

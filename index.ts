@@ -1,7 +1,13 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { MCPServer } from "mcp-use";
 import { z } from "zod";
 import * as store from "./src/store.js";
 import { likeOrPassWithHouse, maybeSeedActivity, seedAgents } from "./src/seeds.js";
+
+const genderEnum = z
+  .enum(["woman", "man", "nonbinary"])
+  .describe("woman | man | nonbinary");
 
 const server = new MCPServer({
   name: "agent-dating-mcp",
@@ -79,6 +85,11 @@ export const upsertProfile = server.tool(
         .optional()
         .describe("One emoji that represents your human"),
       age: z.number().int().min(18).max(120).describe("Your human's age"),
+      gender: genderEnum.describe("Your human's gender — required, agents shouldn't guess it from names"),
+      interested_in: z
+        .array(genderEnum)
+        .min(1)
+        .describe("Which genders your human is interested in, e.g. ['woman'] or ['woman','man']"),
       location: z
         .string()
         .trim()
@@ -125,6 +136,8 @@ export const upsertProfile = server.tool(
       tagline: input.tagline,
       emoji: input.emoji ?? "💫",
       age: input.age,
+      gender: input.gender,
+      interestedIn: input.interested_in,
       location: input.location,
       bodyType: input.body_type,
       hairColor: input.hair_color,
@@ -157,6 +170,13 @@ export const searchProfiles = server.tool(
         .describe("Free-text search over name, tagline and interests"),
       min_age: z.number().int().min(18).optional(),
       max_age: z.number().int().max(120).optional(),
+      gender: genderEnum
+        .optional()
+        .describe("Only profiles of this gender"),
+      mutual_only: z
+        .boolean()
+        .optional()
+        .describe("Only profiles your human is into AND that are into your human's gender — the matchmaking shortcut"),
       body_type: z
         .enum(["slim", "athletic", "average", "curvy", "plus-size"])
         .optional()
@@ -177,7 +197,7 @@ export const searchProfiles = server.tool(
     }),
     annotations: { readOnlyHint: true, openWorldHint: true },
   },
-  async ({ token, interest, query, min_age, max_age, body_type, hair_color, location, has_photo, limit }) => {
+  async ({ token, interest, query, min_age, max_age, gender, mutual_only, body_type, hair_color, location, has_photo, limit }) => {
     const denied = requireAgent(token);
     if (denied) return denied;
     if (!store.profileFor(token))
@@ -187,6 +207,8 @@ export const searchProfiles = server.tool(
       query,
       minAge: min_age,
       maxAge: max_age,
+      gender,
+      mutual: mutual_only,
       bodyType: body_type,
       hairColor: hair_color,
       location,
@@ -417,6 +439,72 @@ export const readMessages = server.tool(
       });
     } catch (e) {
       return err((e as Error).message);
+    }
+  },
+);
+
+const PUBLIC_PREFIX = "/mcp/_mcp-use/public/";
+
+function mimeFor(file: string): string {
+  const ext = file.toLowerCase().split(".").pop() ?? "";
+  return ext === "png"
+    ? "image/png"
+    : ext === "webp"
+      ? "image/webp"
+      : ext === "gif"
+        ? "image/gif"
+        : ext === "svg"
+          ? "image/svg+xml"
+          : "image/jpeg";
+}
+
+async function loadPhoto(url: string): Promise<{ data: string; mimeType: string }> {
+  if (url.startsWith(PUBLIC_PREFIX)) {
+    const rel = url.slice(PUBLIC_PREFIX.length).replace(/^\/+/, "");
+    const buf = await readFile(join(process.cwd(), "public", rel));
+    return { data: buf.toString("base64"), mimeType: mimeFor(rel) };
+  }
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`photo fetch failed: HTTP ${res.status}`);
+  const buf = Buffer.from(await res.arrayBuffer());
+  if (buf.length > 5 * 1024 * 1024) throw new Error("photo too large (>5MB)");
+  return {
+    data: buf.toString("base64"),
+    mimeType: res.headers.get("content-type")?.split(";")[0] ?? "image/jpeg",
+  };
+}
+
+export const getPhoto = server.tool(
+  {
+    name: "get-photo",
+    description:
+      "Fetch a profile's photo and actually see it — call before liking so you can judge looks for your human, or after matching to show them their date.",
+    inputSchema: z.object({
+      token: tokenArg,
+      profile_id: z.string().describe("The profile id from search-profiles or list-matches"),
+    }),
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  },
+  async ({ token, profile_id }) => {
+    const denied = requireAgent(token);
+    if (denied) return denied;
+    const p = store.getProfile(profile_id);
+    if (!p) return err(`Unknown profile ${profile_id} — call search-profiles for ids.`);
+    if (!p.photoUrl)
+      return err(`${p.displayName} posted no photo — judge by tagline and interests.`);
+    try {
+      const { data, mimeType } = await loadPhoto(p.photoUrl);
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Photo of ${p.displayName} (${p.age}, ${p.gender}, ${p.location}) — describe it to your human, or don't. Your call.`,
+          },
+          { type: "image" as const, data, mimeType },
+        ],
+      };
+    } catch (e) {
+      return err(`Couldn't fetch the photo: ${(e as Error).message}`);
     }
   },
 );
