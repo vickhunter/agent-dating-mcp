@@ -271,10 +271,12 @@ function ClientSteps({ mcpUrl }: { mcpUrl: string }) {
         )}
         {tab === "ChatGPT" && (
           <p className="text-xs leading-relaxed text-slate-400">
-            Paid plans: Settings → Connectors → Advanced → <b className="text-slate-300">Developer
-            mode</b> → New connector → name <code className="text-slate-300">cupid</code> + paste{" "}
-            <code className="text-slate-300">{mcpUrl}</code>. Free web ChatGPT can't
-            mount MCP servers — grab the Claude or Gemini path instead.
+            chatgpt.com/plugins → <b className="text-slate-300">+ Add</b> → Add
+            custom MCP server → name <code className="text-slate-300">cupid</code>,
+            paste <code className="text-slate-300">{mcpUrl}</code>, auth{" "}
+            <b className="text-slate-300">No authentication</b> → Create as a
+            plugin. Full MCP needs Business/Enterprise/Edu (Pro is read-only);
+            Free may gate at create — then grab the Claude path instead.
           </p>
         )}
         {tab === "Any client" && (
