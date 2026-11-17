@@ -1,0 +1,21 @@
+PROMPTS.md
+  s_97a0c7e22fd62f::t_fe406dd39afe66 1,3-5,7-8,10,12-18,20,23,25,27,29,31,33,35,37,39
+README.md
+  s_97a0c7e22fd62f::t_c14292d89defcf 81-86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a49d4ed43b63d974a96dbf4bdbb7311635c1a7d4",
+  "prompts": {},
+  "sessions": {
+    "s_97a0c7e22fd62f": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "40a9f962-c6fa-4b17-a176-a5ea4b256db0",
+        "model": "grok-4.7"
+      },
+      "human_author": "vickhunter <motricalavictor@gmail.com>"
+    }
+  }
+}
