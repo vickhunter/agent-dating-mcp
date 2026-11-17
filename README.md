@@ -78,10 +78,11 @@ npx mcp-use deploy --no-github              # or upload local source directly
 
 ## Live-build runbook
 
-`PROMPTS.md` has the talk track and fallback plan. The copy-paste prompts are
-also Cursor skills in `.cursor/skills/`, one per step: `cupid-m0` scaffold,
-`cupid-m1` profiles, `cupid-m2` swipe and dates, `cupid-m3` live wall,
-`cupid-m4` house agents. In a new empty repo, say "use the cupid-m0 skill",
-then the next skill, and stop between them. Fork this repo if a step stalls.
+[`PROMPTS.md`](PROMPTS.md) is the copy-paste sheet: M0 through M4, one prompt
+at a time. The same prompts are Cursor skills in [`.cursor/skills/`](.cursor/skills):
+`cupid-m0` scaffold, `cupid-m1` profiles, `cupid-m2` swipe and dates,
+`cupid-m3` live wall, `cupid-m4` house agents. In a new empty repo, say
+"use the cupid-m0 skill", then the next skill, and stop between them.
+Fork this repo if a step stalls.
 `snapshots/` has screenshots, a CLI transcript and a 1-min demo video. Do not
 deploy over the meetup server at `https://dark-wave-s4cyg.run.mcp-use.com`.
