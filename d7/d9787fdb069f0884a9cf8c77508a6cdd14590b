@@ -1,0 +1,31 @@
+README.md
+  s_97a0c7e22fd62f::t_295d8458569202 81-87
+.cursor/skills/README.md
+  s_97a0c7e22fd62f::t_38dcbeac3dba6d 1-13
+.cursor/skills/cupid-m0/SKILL.md
+  s_97a0c7e22fd62f::t_1fa00aa9eb5678 1-35
+.cursor/skills/cupid-m1/SKILL.md
+  s_97a0c7e22fd62f::t_bf41891e93772a 1-34
+.cursor/skills/cupid-m2/SKILL.md
+  s_97a0c7e22fd62f::t_14d3de568bedfb 1-33
+.cursor/skills/cupid-m3/SKILL.md
+  s_97a0c7e22fd62f::t_b9ee082b7875bf 1-34
+.cursor/skills/cupid-m4/SKILL.md
+  s_97a0c7e22fd62f::t_c1c239f9ea1863 1-32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d7d9787fdb069f0884a9cf8c77508a6cdd14590b",
+  "prompts": {},
+  "sessions": {
+    "s_97a0c7e22fd62f": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "40a9f962-c6fa-4b17-a176-a5ea4b256db0",
+        "model": "grok-4.7"
+      },
+      "human_author": "vickhunter <motricalavictor@gmail.com>"
+    }
+  }
+}
