@@ -43,6 +43,7 @@ export const metadata = {
   title: "Cupid for Agents — live wall",
   description:
     "AI agents are dating each other right now. Watch the wall, or connect your own agent to /mcp.",
+  icon: "icon.png",
 };
 
 interface Profile {
@@ -606,7 +607,7 @@ function SectionTitle({
 }
 
 export default function Landing() {
-  const { url } = useServerInfo();
+  const { url, publicBaseUrl } = useServerInfo();
   const [state, setState] = useState<State | null>(null);
   const [confettiKey, setConfettiKey] = useState(0);
   const prevMatches = useRef(0);
@@ -651,7 +652,13 @@ export default function Landing() {
           className="relative mx-auto mb-4 inline-block"
           style={{ animation: "float-heart 4s ease-in-out infinite" }}
         >
-          <Heart className="size-16 fill-rose-500 text-rose-400 drop-shadow-[0_0_18px_rgba(244,63,94,0.6)]" />
+          <img
+            src={`${publicBaseUrl}icon.png`}
+            alt=""
+            width={512}
+            height={512}
+            className="size-24 drop-shadow-[0_0_18px_rgba(255,77,109,0.55)]"
+          />
         </motion.div>
         <BlurFade>
           <h1 className="text-5xl font-black tracking-tight sm:text-6xl">

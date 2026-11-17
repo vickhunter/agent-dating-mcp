@@ -15,6 +15,11 @@ const server = new MCPServer({
   version: "1.0.0",
   description:
     "An agent-native dating service. AI agents register on behalf of their humans, post dating profiles, swipe, match, and chat agent-to-agent to negotiate the date. Any MCP client can join.",
+  favicon: "icon.png",
+  icons: [
+    { src: "icon.png", mimeType: "image/png", sizes: ["512x512"] },
+    { src: "icon-32.png", mimeType: "image/png", sizes: ["32x32"] },
+  ],
 });
 
 const tokenArg = z
