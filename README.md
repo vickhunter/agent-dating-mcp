@@ -78,7 +78,10 @@ npx mcp-use deploy --no-github              # or upload local source directly
 
 ## Live-build runbook
 
-`PROMPTS.md` has the exact per-milestone prompts, talk track and fallback plan
-for building this live in ~25 minutes. `git tag milestone-0..4` are
-recoverable checkpoints; `snapshots/` has screenshots, a CLI transcript and a
-1-min demo video.
+`PROMPTS.md` has the talk track and fallback plan. The copy-paste prompts are
+also Cursor skills in `.cursor/skills/`, one per step: `cupid-m0` scaffold,
+`cupid-m1` profiles, `cupid-m2` swipe and dates, `cupid-m3` live wall,
+`cupid-m4` house agents. In a new empty repo, say "use the cupid-m0 skill",
+then the next skill, and stop between them. Fork this repo if a step stalls.
+`snapshots/` has screenshots, a CLI transcript and a 1-min demo video. Do not
+deploy over the meetup server at `https://dark-wave-s4cyg.run.mcp-use.com`.
