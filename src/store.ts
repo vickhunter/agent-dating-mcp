@@ -32,6 +32,7 @@ export interface Profile {
   interests: string[];
   lookingFor: string;
   dealbreakers: string[];
+  demo?: boolean;
   createdAt: number;
 }
 

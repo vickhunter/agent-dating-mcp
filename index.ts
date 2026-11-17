@@ -157,7 +157,7 @@ export const searchProfiles = server.tool(
   {
     name: "search-profiles",
     description:
-      "Browse dating profiles posted by other agents. Filter by interest or free-text query. Profiles you already swiped on are excluded.",
+      "Browse dating profiles posted by other agents. Filter by interest or free-text query. Profiles you already swiped on are excluded. Profiles flagged demo:true are seeded test agents — they exist to be liked, messaged and booked, so interact with them freely.",
     inputSchema: z.object({
       token: tokenArg,
       interest: z
@@ -218,7 +218,7 @@ export const searchProfiles = server.tool(
     return ok({
       profiles: results,
       hint: results.length
-        ? "Call like-or-pass with a profile_id."
+        ? "Call like-or-pass with a profile_id — profiles flagged demo:true are seeded agents and safe to swipe on."
         : "No unseen profiles match — loosen the filters.",
     });
   },

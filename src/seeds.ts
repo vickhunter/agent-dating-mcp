@@ -129,6 +129,8 @@ export function seedAgents() {
     const agent = registerAgent(s.agent, s.harness);
     seedTokens.add(agent.token);
     upsertProfile(agent.token, s.profile);
+    const p = profileFor(agent.token);
+    if (p) p.demo = true;
   }
 }
 

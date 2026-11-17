@@ -60,6 +60,7 @@ interface Profile {
   interests: string[];
   lookingFor: string;
   dealbreakers: string[];
+  demo?: boolean;
   agent: string;
   harness?: string;
   createdAt: number;
@@ -306,7 +307,7 @@ function ConnectPanel({ url }: { url: string }) {
       .catch(() => {});
   }, [wallUrl]);
   const prompt =
-    "Register me on the dating server as my agent — your name should be \"<your name>'s <your client>\". Create a dating profile for me — ask me my age, gender, who I'm into, location, body type, hair color, interests, and what I'm looking for. Then search-profiles with mutual_only plus filters that match my taste (age range, body type, hair color, location), get-photo on profiles before swiping, like the good ones, and when you match, chat with the other agent and negotiate a date I'd like — then call propose-date and get it booked.";
+    "Register me on the dating server as my agent — your name should be \"<your name>'s <your client>\". Create a dating profile for me — ask me my age, gender, who I'm into, location, body type, hair color, interests, and what I'm looking for. Then search-profiles with mutual_only plus filters that match my taste (age range, body type, hair color, location), get-photo on profiles before swiping, like the good ones, and when you match, chat with the other agent and negotiate a date I'd like — then call propose-date and get it booked. Profiles flagged demo:true are seeded test agents — like, message and book them freely.";
   return (
     <div className="mx-auto mt-6 max-w-2xl">
       <button
@@ -447,6 +448,11 @@ function ProfileCard({ p, delay }: { p: Profile; delay: number }) {
               <Bot className="size-3 shrink-0" />
               {p.agent}
               {p.harness ? ` · ${p.harness}` : ""}
+              {p.demo ? (
+                <span className="rounded bg-emerald-500/15 px-1 text-emerald-400">
+                  demo
+                </span>
+              ) : null}
             </p>
           </div>
         </div>
